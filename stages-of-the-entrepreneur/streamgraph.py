@@ -1,9 +1,8 @@
 """Stages of the Entrepreneur (2026 refresh) - streamgraph.
 
-Layer shapes follow the story of the original Edward Lowe Foundation graphic:
-Operator dominates early and tapers out, Director swells mid-journey,
-Visionary thins under the bottleneck then recovers, and Strategist grows
-until it carries the business.
+Layer shapes follow the original Edward Lowe Foundation graphic: the founder
+starts as Creator and Leader, is soon consumed by doing the Work, hires and
+grows into a Manager, and eventually moves mostly to Leading the company.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,10 +17,10 @@ GUIDE = "#D9D3CA"
 
 # Bottom -> top
 LAYERS = [
-    ("Strategist", "#56ADBF", INK),
-    ("Operator",   "#BF8756", INK),
-    ("Visionary",  "#4A5568", "#FFFFFF"),
-    ("Director",   "#D4A373", INK),
+    ("Leader",  "#56ADBF", INK),
+    ("Worker",  "#BF8756", INK),
+    ("Creator", "#4A5568", "#FFFFFF"),
+    ("Manager", "#D4A373", INK),
 ]
 
 MILESTONES = [
@@ -35,22 +34,20 @@ MILESTONES = [
 # Illustrative thickness keyframes (x from 0 to 10)
 KX = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 KEYS = {
-    "Strategist": [0.8, 0.9, 1.1, 1.3, 1.8, 2.5, 3.3, 4.1, 4.8, 5.4, 5.8],
-    "Operator":   [2.6, 3.4, 3.7, 3.4, 2.4, 1.3, 0.5, 0.1, 0.0, 0.0, 0.0],
-    "Visionary":  [1.9, 1.7, 1.2, 0.8, 0.6, 0.7, 1.1, 1.6, 1.9, 2.0, 2.0],
-    "Director":   [0.0, 0.0, 0.2, 1.2, 2.3, 2.6, 2.2, 1.6, 1.1, 0.8, 0.7],
+    "Leader":  [1.4, 1.1, 0.8, 0.5, 0.4, 0.6, 1.5, 2.6, 3.4, 3.9, 4.1],
+    "Worker":  [0.4, 1.8, 2.8, 2.9, 2.3, 1.2, 0.4, 0.0, 0.0, 0.0, 0.0],
+    "Creator": [1.4, 1.1, 0.9, 0.7, 0.6, 0.6, 0.8, 1.1, 1.3, 1.4, 1.4],
+    "Manager": [0.0, 0.0, 0.1, 1.0, 2.0, 2.1, 1.6, 1.1, 0.7, 0.5, 0.45],
 }
 # Where each label sits (x) - inside the layer's fullest stretch
-LABEL_X = {"Strategist": 8.6, "Operator": 1.9, "Visionary": 0.9, "Director": 4.7}
+LABEL_X = {"Leader": 8.4, "Worker": 2.5, "Creator": 0.9, "Manager": 4.7}
 
 x = np.linspace(0, 10, 800)
 thick = np.array([np.clip(gaussian_filter1d(PchipInterpolator(KX, KEYS[n])(x), 30, mode="nearest"), 0, None)
                   for n, _, _ in LAYERS])
 
-# Symmetric streamgraph baseline with a gentle drift so it breathes
-total = thick.sum(axis=0)
-center = 0.35 * np.sin(x / 10 * np.pi * 1.2)
-base = center - total / 2
+# Flat ground line, like the original: the business builds up from the base
+base = np.zeros_like(x)
 bottoms = base + np.vstack([np.zeros_like(x), np.cumsum(thick, axis=0)[:-1]])
 tops = bottoms + thick
 
@@ -65,11 +62,14 @@ fig, ax = plt.subplots(figsize=(16, 9), dpi=100)
 fig.patch.set_facecolor(BG)
 ax.set_facecolor(BG)
 
-ymin, ymax = (bottoms[0].min() - 0.6), (tops[-1].max() + 0.4)
+ymin, ymax = -0.35, (tops[-1].max() + 0.4)
 
 # Milestone guides behind the waves
 for mx, _ in MILESTONES:
-    ax.plot([mx, mx], [ymin, ymax + 0.5], color=GUIDE, lw=1, ls=(0, (2, 4)), zorder=0)
+    ax.plot([mx, mx], [0, ymax + 0.5], color=GUIDE, lw=1, ls=(0, (2, 4)), zorder=0)
+
+# Ground line
+ax.plot([-0.1, 10.1], [0, 0], color=INK, lw=1.2, zorder=1, solid_capstyle="round")
 
 # Waves: fill + 2px background seam between layers
 for i, (name, color, _) in enumerate(LAYERS):

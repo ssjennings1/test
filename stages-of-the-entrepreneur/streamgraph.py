@@ -55,7 +55,7 @@ KX = np.array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 KEYS = {
     "Leader":  [1.4, 1.1, 0.8, 0.5, 0.4, 0.6, 1.5, 2.6, 3.4, 3.9, 4.1],
     "Worker":  [0.4, 1.8, 2.8, 2.9, 2.3, 1.2, 0.4, 0.0, 0.0, 0.0, 0.0],
-    "Creator": [1.4, 1.1, 0.9, 0.7, 0.6, 0.6, 0.8, 1.1, 1.6, 2.1, 2.4],
+    "Creator": [2.3, 1.5, 1.0, 0.7, 0.6, 0.6, 0.8, 1.1, 1.6, 2.1, 2.4],
     "Manager": [0.0, 0.0, 0.1, 1.0, 2.0, 2.1, 1.6, 1.1, 0.7, 0.5, 0.45],
 }
 # Where each label sits (x) - inside the layer's fullest stretch
@@ -78,25 +78,34 @@ for f in ("Inter", "Lato", "Source Sans 3", "Helvetica Neue"):
 plt.rcParams["font.family"] = font
 
 
-def draw_cycle(iax, angle=0.0, color=INK):
-    """Two chasing arrows in a round badge - the state-change mark."""
+def draw_cycle(iax, angle=0.0, active=True, pulse=None):
+    """Two chasing arrows in a round badge - the state-change mark.
+
+    Active badges are solid ink with light arrows so they stand out on the
+    timeline; `pulse` (0-1) draws an expanding ring as a badge switches on.
+    """
     iax.clear()
-    iax.set_xlim(-1.1, 1.1)
-    iax.set_ylim(-1.1, 1.1)
+    iax.set_xlim(-1.9, 1.9)
+    iax.set_ylim(-1.9, 1.9)
     iax.set_aspect("equal")
     iax.axis("off")
-    iax.add_patch(Circle((0, 0), 1.0, facecolor=BG, edgecolor=color, lw=1.5))
+    fill, edge, arrow = (INK, INK, BG) if active else (BG, FADED, FADED)
+    if pulse is not None:
+        iax.add_patch(Circle((0, 0), 1.0 + 0.85 * pulse, facecolor="none", edgecolor=INK,
+                             lw=2.5, alpha=0.6 * (1 - pulse)))
+    iax.add_patch(Circle((0, 0), 1.18, facecolor=BG, edgecolor="none"))  # halo off the line
+    iax.add_patch(Circle((0, 0), 1.0, facecolor=fill, edgecolor=edge, lw=1.5))
     r, sweep = 0.56, 125
     for start in (35, 215):
         t = np.radians(np.linspace(start, start + sweep, 40) + angle)
-        iax.plot(r * np.cos(t), r * np.sin(t), color=color, lw=1.8, solid_capstyle="round")
+        iax.plot(r * np.cos(t), r * np.sin(t), color=arrow, lw=2.2, solid_capstyle="round")
         # Arrowhead at the end of the arc, pointing along the direction of travel
         e = t[-1]
         tip = np.array([np.cos(e), np.sin(e)]) * r
         tang = np.array([-np.sin(e), np.cos(e)])
         norm = np.array([np.cos(e), np.sin(e)])
-        head = [tip + tang * 0.26, tip - norm * 0.2, tip + norm * 0.2]
-        iax.add_patch(Polygon(head, closed=True, facecolor=color, edgecolor=color, lw=0.5))
+        head = [tip + tang * 0.28, tip - norm * 0.22, tip + norm * 0.22]
+        iax.add_patch(Polygon(head, closed=True, facecolor=arrow, edgecolor=arrow, lw=0.5))
 
 
 def build():
@@ -154,7 +163,8 @@ def build():
 
     # State-change badges sit on the timeline, sized square in display space
     to_fig = ax.transData + fig.transFigure.inverted()
-    size = 0.042  # figure-height fraction
+    badge = 0.052  # badge diameter, figure-height fraction
+    size = badge * 1.9  # inset spans +/-1.9 badge radii, leaving room for the pulse
     w, h = size * 9 / 16, size
     for sx in STATE_CHANGES:
         fx, fy = to_fig.transform((sx, ty))
@@ -165,7 +175,7 @@ def build():
     # Key for the badge, top right
     kax = fig.add_axes([0.745 - w / 2, 0.885 - h / 2, w, h])
     draw_cycle(kax)
-    fig.text(0.76, 0.885, "State change: the founder's role shifts",
+    fig.text(0.766, 0.885, "State change: the founder's role shifts",
              fontsize=13, color=MUTED, ha="left", va="center")
 
     parts["ty"], parts["ymin"] = ty, ymin
@@ -180,7 +190,7 @@ def save_static():
     plt.close(fig)
 
 
-def save_animation(fps=30, sweep_s=7.0, hold_s=3.0):
+def save_animation(fps=30, sweep_s=12.0, hold_s=4.0):
     """Waves grow left to right; milestones light up and badges spin as reached."""
     fig, ax, parts = build()
     ty, ymin = parts["ty"], parts["ymin"]
@@ -191,10 +201,11 @@ def save_animation(fps=30, sweep_s=7.0, hold_s=3.0):
 
     n_sweep, n_hold = int(fps * sweep_s), int(fps * hold_s)
     x0, x1 = -0.2, 10.2
-    spin = 0.45  # half-width (x units) of the window in which a badge spins
+    spin = 0.55  # half-width (x units) of the window in which a badge spins
 
     def ease(t):
-        return 0.5 - 0.5 * np.cos(np.pi * np.clip(t, 0, 1))
+        t = np.clip(t, 0, 1)
+        return 0.7 * t + 0.3 * (0.5 - 0.5 * np.cos(np.pi * t))
 
     def frame(f):
         p = x0 + (x1 - x0) * ease(f / n_sweep) if f < n_sweep else x1
@@ -219,11 +230,12 @@ def save_animation(fps=30, sweep_s=7.0, hold_s=3.0):
 
         for sx, iax in parts["icons"]:
             if p < sx - spin:
-                draw_cycle(iax, 0, FADED)
+                draw_cycle(iax, 0, active=False)
             elif p < sx + spin:
-                draw_cycle(iax, -360 * (p - (sx - spin)) / (2 * spin), INK)
+                t = (p - (sx - spin)) / (2 * spin)
+                draw_cycle(iax, -360 * t, active=True, pulse=t)
             else:
-                draw_cycle(iax, 0, INK)
+                draw_cycle(iax, 0, active=True)
         return []
 
     from matplotlib.animation import FuncAnimation
